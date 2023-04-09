@@ -2,7 +2,8 @@ tmp/
 runs/
 ckpts/
 logs/
-# results/
+results/
+data/CIFAR10/*
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,vim,visualstudiocode,macos,windows,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,vim,visualstudiocode,macos,windows,linux
