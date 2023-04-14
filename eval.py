@@ -2,7 +2,7 @@ import os
 import argparse
 import torch
 import numpy as np
-from model import LitDiffusionModel
+from myModels import LitDiffusionModel
 from eval_utils import *
 
 parser = argparse.ArgumentParser()
@@ -12,7 +12,7 @@ model_args.add_argument('--ckpt_path', type=str, help='Path to the model checkpo
 model_args.add_argument('--hparams_path', type=str, help='Path to model hyperparameters', required=True)
 
 data_args = parser.add_argument_group('data')
-data_args.add_argument('--train_data_path', type=str, default='./data/3d_sin_5_5_train.npy', help='Path to training data numpy file')
+data_args.add_argument('--train_data_path', type=str, default='./data/CIFAR10/CIFAR10_0.npz', help='Path to training data numpy file')
 data_args.add_argument('--test_data_path', type=str, default='./data/3d_sin_5_5_test.npy', help='Path to test data numpy file')
 
 eval_args = parser.add_argument_group('evaluation')
@@ -22,11 +22,6 @@ eval_args.add_argument('--eval_emd', action='store_true', help='Calculate Earth 
 eval_args.add_argument('--eval_emd_samples', type=int, default=128, help='Number of random samples to be sampled for calculating EMD')
 eval_args.add_argument('--eval_nll', action='store_true', help='Calculate negative log likelihood')
 eval_args.add_argument('--eval_chamfer', action='store_true', help='Calculate Chamfer Distance (using `chamferdist`)')
-eval_args.add_argument('--vis_overlay', action='store_true', help='Overlays predicted distribution on top of ground truth')
-eval_args.add_argument('--vis_diffusion', action='store_true', help='Shows the evolution of samples through the diffusion process via an animation')
-eval_args.add_argument('--vis_track_max', action='store_true', help='Track the point with highest Z in the predicted distribution in diffusion animation')
-eval_args.add_argument('--vis_track_min', action='store_true', help='Track the point with lowest Z in the predicted distribution in diffusion animation')
-eval_args.add_argument('--vis_smoothed_end', action='store_true', help='Smooths the end of animation by repeating the last frame of animation')
 args = parser.parse_args()
 
 litmodel = LitDiffusionModel.load_from_checkpoint(
@@ -97,27 +92,4 @@ for i_run in range(args.n_runs):
             f.write(f'test_chamfer: {test_chamfer}\n')
             f.write(f'train_chamfer: {train_chamfer}\n')
     
-    # Visualize overlay
-    if args.vis_overlay:
-        # Only performed with test since it allows for sparser and better visualizations
-        print('Visualizing predicted distribution by overlaying it on top of ground truth distribution')
-        plot_final_distributions(
-                f'{args.savedir}/{i_run:02d}_overlayvis.pdf', 
-            testdata, gendata
-        )
-        print(f'Output: {args.savedir}/{i_run:02d}_overlayvis.pdf')
-    
-    # Visualize diffusion
-    if args.vis_diffusion:
-        print('Visualizing evolution of samples through the diffusion process')
-        print('WARN: this will take a long time depending on the number of diffusion steps')
-        fname = f'{i_run:02d}.diffusionvis.track_max={args.vis_track_max}.track_min={args.vis_track_min}.smoothed_end={args.vis_smoothed_end}.gif'
-        animate_intermediate_distributions(
-            f'{args.savedir}/{fname}', 
-            testdata, intermediate, 
-            track_max=args.vis_track_max, 
-            track_min=args.vis_track_min, 
-            smoothed_end=args.vis_smoothed_end
-        )
-        print(f'Output: {args.savedir}/{fname}')
     print(64*'-')
