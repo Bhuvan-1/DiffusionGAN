@@ -2,10 +2,11 @@ import torch
 import torchvision
 import numpy as np
 import sys
+import cv2
 
 
 if(len(sys.argv) == 1):
-    print("Usage: python generate.py <dataset_name>")
+    print("Usage: python generate.py <dataset_name> [classes] [new_size]")
     sys.exit(1)
 
 device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
@@ -27,7 +28,7 @@ CLASSES OF CIFAR10
 9: truck
 
 """
-if(DOWNLOAD_ALL or sys.argv[1] == "cifar10"):
+if(DOWNLOAD_ALL or sys.argv[1].lower() == "cifar10"):
 
 
     if(len(sys.argv) == 2):
@@ -50,6 +51,17 @@ if(DOWNLOAD_ALL or sys.argv[1] == "cifar10"):
 
     testset.data = testset.data[np.isin(testset.targets, l)]
     testset.targets = np.array(testset.targets)[np.isin(testset.targets, l)]
+
+
+    if(len(sys.argv) == 4):
+        new_size = int(sys.argv[3])
+        print("Resizing images to", new_size, "x", new_size)
+        trainset.data = np.array([cv2.resize(img, (new_size, new_size)) for img in trainset.data])
+        testset.data = np.array([cv2.resize(img, (new_size, new_size)) for img in testset.data])
+
+        name = name + "_" + str(new_size)
+    else:
+        name = name + "_32"
     
     print("CIFAR10 - (train,test) shapes:", trainset.data.shape, testset.data.shape)
     #CIFAR10 - (train,test) shapes: (50000, 32, 32, 3) (10000, 32, 32, 3)

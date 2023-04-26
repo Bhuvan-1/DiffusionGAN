@@ -1,0 +1,13 @@
+First trained with 50 steps, 100 epochs.
+    32,64 channels
+    64,128 channels  ... both gave random noisy results.
+
+
+Then trained with 200 steps.
+    100epochs, 16,32 channels :  
+    50epochs,  32,64 channels :
+
+        both gave similiar results almost, and the images are a lot more smoothed now, though far from airplane looking.
+        The heavier model, 32,64 seems to give more smoother images.
+
+Then 300 steps, 100 epochs, (4,8,16) : just noise!!! model not powerful enough

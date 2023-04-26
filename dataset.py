@@ -6,6 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 
 
+
 def seed_torch(seed=0):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -22,7 +23,7 @@ class CIFAR10(Dataset):
 
         seed_torch(0)
 
-        DICT = np.load('./runs/CIFAR10/' + npzfile)
+        DICT = np.load('./data/CIFAR10/' + npzfile)
 
         if(train):
             self.data = DICT['train']
@@ -51,4 +52,3 @@ class CIFAR10(Dataset):
 
     def __getitem__(self, index):
         return self.data[index]
-
