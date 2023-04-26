@@ -11,3 +11,13 @@ Then trained with 200 steps.
         The heavier model, 32,64 seems to give more smoother images.
 
 Then 300 steps, 100 epochs, (4,8,16) : just noise!!! model not powerful enough
+
+
+
+Then 250 steps, 100 epochs, 16,32,64 channels.
+    training time ~ <= 10sec/epoch
+
+    similiar Results + NOt much difference.
+
+
+

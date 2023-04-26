@@ -6,7 +6,7 @@ from dataset import CIFAR10
 
 parser = argparse.ArgumentParser()
 
-n_steps = 300
+n_steps = 250
 lbeta = 1e-5
 ubeta = 1.28e-2
 noise = 'linear'
@@ -17,11 +17,8 @@ batch_size = 512
 train_data = 'CIFAR10_0_16.npz'
 savedir = './runs/'
 
-down_channels = (4,8,16)
-up_channels = (16,8,4)
-down_channel_str = '_'.join([str(x) for x in down_channels])
-up_channel_str = '_'.join([str(x) for x in up_channels])
-
+down_channels = (16,32,64)
+up_channels = (64,32,16)
 
 
 pl.seed_everything(seed)
