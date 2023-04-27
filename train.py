@@ -6,19 +6,19 @@ from dataset import CIFAR10
 
 parser = argparse.ArgumentParser()
 
-n_steps = 200
-lbeta = 1e-5
-ubeta = 1.28e-2
+n_steps = 500
+lbeta = 1e-4
+ubeta = 0.02
 noise = 'linear'
 
 seed = 1628
 n_epochs = 100
 batch_size = 512
-train_data = 'CIFAR10_0_32.npz'
+train_data = 'CIFAR10_0_16.npz'
 savedir = './runs/'
 
-down_channels = (8,16)
-up_channels = (16,8)
+down_channels = (64,128)
+up_channels = (128,64)
 
 
 pl.seed_everything(seed)
@@ -37,8 +37,7 @@ litmodel = LitDiffusionModel(
 )
 
 
-run_name = f'data={train_data},n_steps={n_steps},lbeta={lbeta:.3e},ubeta={ubeta:.3e},batch_size={batch_size},n_epochs={n_epochs},noise={noise}'
-
+run_name = "N=500,100ep,1e-4,0.02,64_128"
 
 trainer = pl.Trainer(
     deterministic=True,

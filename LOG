@@ -20,4 +20,31 @@ Then 250 steps, 100 epochs, 16,32,64 channels.
     similiar Results + NOt much difference.
 
 
+Then 200 steps, 100 epochs, 64,128 channels....
+    training time on cat : 10sec/epoch
+    Results are better than 16,32,64 channels, could identify one airplane.
 
+
+Then trying to train 200 steps, 100 epochs, 64,128,256
+    time ~ 15-20sec per epochs.. 100 epochs = 25min
+    
+    
+
+now same model, 500steps....
+    trianing was quick enough in cat.
+    Results were lot smoother.... try with 100 (ddpm paper used 1000)
+
+
+
+1000 steps, 32_64   ---  1e-4 0.02 beta. --- 100epochs.
+    okish images, still somewhat hazy blurry...
+
+
+
+1000 steps, 64,128,256   ---  1e-4 0.02 beta. --- 150epochs.
+    Much better images so far i guess. but still not aeroplanes...
+
+
+?? Need to implemement eval metrics..
+Try even heavier model ?
+Try more steps ?
