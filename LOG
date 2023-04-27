@@ -46,5 +46,5 @@ now same model, 500steps....
 
 
 ?? Need to implemement eval metrics..
-Try even heavier model ?
-Try more steps ?
+Try even heavier model ? 
+Try more steps ?    .......... NO SAMPLING BECOMES TOOOO HEAVY.
