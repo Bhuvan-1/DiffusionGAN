@@ -1,0 +1,22 @@
+######
+gan training unstable..maybe need to tweak lerning rate.
+
+or add a regularizer term as mentioned in the paper.
+
+also see if the modles of D,G are correct or not.
+
+
+#####
+implement an evaluation metrix like emd score.
+
+
+
+
+###
+finally a graph of 
+
+emdscore vs sampling time  for each method  with approx same model size (#params)
+
+or 
+
+emdscore vs T ... or something similiar just like the graphs in GAN  paper.
