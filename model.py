@@ -141,6 +141,126 @@ class SimpleUnet(nn.Module):
         return self.output(x)
 
 
+class Generator(nn.Module):
+    """
+    A simplified variant of the Unet architecture.
+    Input shape : (N, 3, H, W)
+    Output shape: (N, 3, H, W)
+    --->needs input latent vector 'z', and time 't'.
+    """
+    def __init__(self,image_channels = 3, down_channels = (64, 128, 256, 512, 1024), up_channels = (1024, 512, 256, 128, 64), out_dim = 1, time_emb_dim = 32, latent_dim = 128):
+        super().__init__()
+
+        self.image_channels = image_channels
+        self.down_channels = down_channels
+        self.up_channels = up_channels
+        self.out_dim = out_dim
+        self.time_emb_dim = time_emb_dim
+        self.latent_dim = latent_dim
+
+
+        # Time embedding
+        self.time_mlp = nn.Sequential(
+                SinusoidalPositionEmbeddings(time_emb_dim),
+                nn.Linear(time_emb_dim, time_emb_dim),
+                nn.ReLU()
+            )
+
+        # Latent embedding
+        # re sized the latent vector to match the time embedding dimension
+        self.latent_mlp = nn.Sequential(
+                nn.Linear(latent_dim, 2*latent_dim),
+                nn.ReLU(),
+                nn.Linear(2*latent_dim, latent_dim),
+                nn.ReLU(),
+                nn.Linear(latent_dim, time_emb_dim),
+                nn.ReLU()
+            )
+        
+        # Initial projection
+        self.conv0 = nn.Conv2d(image_channels, down_channels[0], 3, padding=1)
+
+        # Downsample
+        self.downs = nn.ModuleList([ Block(down_channels[i], down_channels[i+1], 2*time_emb_dim) for i in range(len(down_channels)-1)])
+        
+        # Upsample
+        self.ups = nn.ModuleList([ Block(up_channels[i], up_channels[i+1], 2*time_emb_dim, up=True) for i in range(len(up_channels)-1)])
+
+        self.output = nn.Conv2d(up_channels[-1], 3, out_dim)
+
+    def forward(self, x, z, timestep):
+
+        t = self.time_mlp(timestep)
+        z = self.latent_mlp(z)
+
+        tz = torch.cat((t,z), dim=1)
+
+        x = self.conv0(x)
+
+        residual_inputs = []
+        for down in self.downs:
+            x = down(x, tz)
+            residual_inputs.append(x)
+        for up in self.ups:
+            residual_x = residual_inputs.pop()
+            # Add residual x as additional channels [APPEND]
+            x = torch.cat((x, residual_x), dim=1)           
+            x = up(x, tz)
+        return self.output(x)
+
+class Discriminator(nn.Module):
+    """
+    A simplified variant of the Unet architecture.
+    Input shape : (N, 3, H, W) , (N, 3, H, W) , t
+    Output      : probability of input being real or fake
+    """
+    def __init__(self,image_channels = 3, down_channels = (64, 128, 256, 512, 1024), time_emb_dim = 32):
+        super().__init__()
+
+        self.image_channels = image_channels
+        self.down_channels = down_channels
+        self.time_emb_dim = time_emb_dim
+
+        # Time embedding
+        self.time_mlp = nn.Sequential(
+                SinusoidalPositionEmbeddings(time_emb_dim),
+                nn.Linear(time_emb_dim, time_emb_dim),
+                nn.ReLU()
+            )
+
+        # Initial projection
+        self.conv0 = nn.Conv2d(2*image_channels, down_channels[0], 3, padding=1)
+
+        # Downsample
+        self.downs = nn.ModuleList([ Block(down_channels[i], down_channels[i+1], time_emb_dim) for i in range(len(down_channels)-1)])
+        
+
+        #global sum pooling.
+        self.pool = nn.AdaptiveAvgPool2d((1,1))
+
+        #flatten into (N,C)
+        self.flatten = nn.Flatten()
+
+        #final linear layer
+        self.output = nn.Linear(down_channels[-1], 1)
+
+    def forward(self, x_t , x_t1 , timestep):
+
+        t = self.time_mlp(timestep)
+        x = torch.cat((x_t,x_t1), dim=1)
+
+        x = self.conv0(x)
+        for down in self.downs:
+            x = down(x, t)
+
+        x = self.pool(x)
+        x = self.flatten(x)
+
+        # return sigmoid of output.
+        return torch.sigmoid(self.output(x))
+	
+
+
 class LitDiffusionModel(pl.LightningModule):
     def __init__(self,img_shape = (3,32,32), n_steps=200, lbeta=1e-5, ubeta=1e-2,noise='linear',down_channels = (64, 128, 256, 512, 1024), up_channels = (1024, 512, 256, 128, 64), out_dim = 1, time_emb_dim = 32):
         super().__init__()
@@ -289,3 +409,108 @@ class LitDiffusionModel(pl.LightningModule):
         In our experiments, we chose one good value of optimizer hyperparameters for all experiments.
         """
         return torch.optim.Adam(self.model.parameters(), lr=2e-3)
+
+
+
+class GANDiffusionModel(nn.Module):
+    def __init__(self,img_shape = (3,32,32), n_steps=4, lbeta=0.1, ubeta=20,noise='linear',down_channels = (64, 128, 256, 512, 1024), up_channels = (1024, 512, 256, 128, 64), out_dim = 1, time_emb_dim = 32,latent_dim = 128):
+        super().__init__()
+
+        self.gen = Generator(img_shape[0],down_channels, up_channels, out_dim, time_emb_dim, latent_dim)
+        self.disc = Discriminator(img_shape[0],down_channels, time_emb_dim)
+        
+
+        self.img_shape = img_shape
+        self.lbeta = lbeta
+        self.ubeta = ubeta
+        self.n_steps = n_steps
+        self.noise = noise
+        self.latent_dim = latent_dim 
+
+        """
+        Sets up variables for noise schedule
+        """
+        self.init_alpha_beta_schedule(lbeta, ubeta)
+
+    def forward(self, x, t):
+        """
+            x --> shape (N, C, H, W)'
+            t --> shape (N, 1)
+
+            Returns: (N, C, H, W)
+        """
+
+
+    def vp_sde(self, t):
+        """
+            Implementing the variance preserving SDE from the paper
+            variance sigma^2 as a fn of (t/T)
+        """
+        t_norm = t/self.n_steps
+
+        num = self.lbeta*t_norm + 0.5*(self.ubeta-self.lbeta)*t_norm*t_norm
+        return 1 - torch.exp(-num)
+
+
+    def init_alpha_beta_schedule(self, lbeta, ubeta):
+        """
+        Sets up variables for noise schedule
+        switch between linear, cosine, and sigmoid noise schedules using the `noise` parameter.
+
+        """
+        if( self.noise == 'linear'):
+            self.alpha_bar = 1 - self.vp_sde(torch.arange(0, self.n_steps+1, 1))  #0 is irrelevant
+            self.alpha     = self.alpha_bar[1:]/self.alpha_bar[:-1]
+            self.alpha     = torch.cat( [torch.tensor([1.0]), self.alpha] )
+            self.beta      = 1 - self.alpha
+
+    def q_cond_sample(self, x0, t):
+        """
+            sample x_{t} given x0 & t
+
+            x0 shape : (N,<...>) 
+            t shape  : (N,1)
+            --> return (N,<....>)
+        """ 
+
+        # extend t into shape (N,<...>) to match x0
+        t  = t.reshape( [t.size(0)] + [1]*(len(x0.shape)-1) )
+
+        return self.alpha_bar[t]*x0 + (1 - self.alpha_bar[t])*torch.randn_like(x0)
+
+
+    def q_next_sample(self, x_t1, t):
+        """
+            sample x_{t} given x_{t-1} & t
+            shapes: x_t1 (N,<...>) , t (N,1)
+            --> return (N,<....>)
+        """
+
+        t  = t.reshape( [t.size(0)] + [1]*(len(x_t1.shape)-1) )
+
+        return torch.sqrt(1-self.beta[t])*x_t1 + self.beta[t]*torch.randn_like(x_t1)
+
+
+    def sample(self, n_samples, progress=False, return_intermediate=False):
+        """
+        Implements inference step for the DDPM.
+        `progress` is an optional flag to implement -- it should just show the current step in diffusion
+        reverse process.
+        If `return_intermediate` is `False`,
+            the function returns a `n_samples` sampled from the learned DDPM
+            i.e. a Tensor of size (n_samples, <imag_shape>).
+        Else
+            the function returns all the intermediate steps in the diffusion process as well 
+            i.e. a Tensor of size (n_samples, n_dim) and a list of `self.n_steps` Tensors of size (n_samples, <img_shape>) each.
+            Return: (n_samples, <img_shape>)(final result), [(n_samples, <img_shape>)(intermediate) x n_steps]
+        """
+
+
+    # def configure_optimizers(self):
+    #     """
+    #     Sets up the optimizer to be used for backprop.
+    #     Must return a `torch.optim.XXX` instance.
+    #     You may choose to add certain hyperparameters of the optimizers to the `train.py` as well.
+    #     In our experiments, we chose one good value of optimizer hyperparameters for all experiments.
+    #     """
+    #     return torch.optim.Adam( list(self.gen.parameters()) + list(self.disc.parameters()) , lr = 1e-3)
