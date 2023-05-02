@@ -48,3 +48,36 @@ now same model, 500steps....
 ?? Need to implemement eval metrics..
 Try even heavier model ? 
 Try more steps ?    .......... NO SAMPLING BECOMES TOOOO HEAVY.
+
+
+
+
+
+
+
+
+
+
+
+
+===================================================================================================
+
+1
+
+    ####  TRAINING PARAMETERS ####
+    n_epochs = 200
+    batch_size = 1000
+    lr_g = 2e-3
+    lr_d = 1e-3
+
+    ####  MODEL PARAMETERS ####
+    down_channels = (4,8)
+    up_channels = (8,4)
+    n_steps = 8
+    lbeta = 0.1
+    ubeta = 20
+    noise = 'linear'
+    latent_dim = 128
+
+
+    This with Adam optimiser, gave almost loss of 2,0.5

@@ -491,19 +491,24 @@ class GANDiffusionModel(nn.Module):
         return torch.sqrt(1-self.beta[t])*x_t1 + self.beta[t]*torch.randn_like(x_t1)
 
 
-    def sample(self, n_samples, progress=False, return_intermediate=False):
+    def sample(self, n_samples):
         """
-        Implements inference step for the DDPM.
-        `progress` is an optional flag to implement -- it should just show the current step in diffusion
-        reverse process.
-        If `return_intermediate` is `False`,
-            the function returns a `n_samples` sampled from the learned DDPM
-            i.e. a Tensor of size (n_samples, <imag_shape>).
-        Else
-            the function returns all the intermediate steps in the diffusion process as well 
-            i.e. a Tensor of size (n_samples, n_dim) and a list of `self.n_steps` Tensors of size (n_samples, <img_shape>) each.
-            Return: (n_samples, <img_shape>)(final result), [(n_samples, <img_shape>)(intermediate) x n_steps]
         """
+        X = torch.zeros( [n_samples , self.n_steps+1] + list(self.img_shape) )
+        X[:,-1,:] = torch.randn( [n_samples] + list(self.img_shape) )
+
+        for t in range(self.n_steps, 0, -1):
+            z = torch.randn( [n_samples, self.latent_dim] )
+            # times = torch.ones((n_samples,1),dtype=torch.int32 )*t
+
+            times = torch.LongTensor([t]).expand(n_samples).reshape(n_samples,1)
+
+            x_0 = self.gen(X[:,t,:] , z , times)
+            X[:,t-1,:] = self.q_cond_sample(x_0, times)
+
+        return X[:,0,:]
+
+
 
 
     # def configure_optimizers(self):

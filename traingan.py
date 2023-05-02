@@ -14,6 +14,11 @@ torch.manual_seed(seed)
 train_data = './data/CIFAR10/CIFAR10_0_16.npz'
 dataset = np.load(train_data)
 train_dataset = dataset['train']
+
+# mean = np.mean(train_dataset,axis=0)
+# std = np.std(train_dataset,axis=0)
+# train_dataset = (train_dataset - mean)/std
+
 train_dataset = torch.from_numpy(train_dataset).permute(0,3,1,2).float()
 train_dataset = train_dataset/255
 
@@ -22,15 +27,15 @@ train_dataset = train_dataset/255
 
 ####  TRAINING PARAMETERS ####
 n_epochs = 200
-batch_size = 512
-lr_g = 5e-4
-lr_d = 5e-4
+batch_size = 1000
+lr_g = 1e-3
+lr_d = 1e-3
 
 
 
 ####  MODEL PARAMETERS ####
-down_channels = (4,8)
-up_channels = (8,4)
+down_channels = (8,16)
+up_channels = (16,8)
 n_steps = 8
 lbeta = 0.1
 ubeta = 20
@@ -41,7 +46,7 @@ img_shape = train_dataset.shape[1:]
 
 ### LOGGING PARAMETERS ###
 savedir = './runs/gan'
-run_name = "test"
+run_name = "B1000_both1e-3_T8_M8_16"
 
 
 
@@ -58,17 +63,42 @@ model = GANDiffusionModel(
 )
 
 
-optimG = torch.optim.SGD(model.gen.parameters(),lr = lr_g)
-optimD = torch.optim.SGD(model.disc.parameters(),lr = lr_d)
+optimG = torch.optim.Adam(model.gen.parameters(),lr = lr_g)
+optimD = torch.optim.Adam(model.disc.parameters(),lr = lr_d)
 
+
+
+#implemenmt early stopping.
+#save best model as a pkl file.
+
+lossG_best = np.inf
+lossD_best = np.inf
+
+
+
+args_dict = {
+    'n_epochs' : n_epochs,
+    'batch_size' : batch_size,
+    'lr_g' : lr_g,
+    'lr_d' : lr_d,
+    'down_channels' : down_channels,
+    'up_channels' : up_channels,
+    'n_steps' : n_steps,
+    'lbeta' : lbeta,
+    'ubeta' : ubeta,
+    'noise' : noise,
+    'latent_dim' : latent_dim,
+    'img_shape' : img_shape
+}
+pkl.dump(args_dict, open(os.path.join(savedir + '/' + run_name , "hparams.pkl"), "wb"))
 
 
 for epoch in range(n_epochs):
     
-        #randomly pick a batch of data
-        idx = torch.randperm(train_dataset.size(0))
-        batch = train_dataset[idx[:batch_size]]
-    
+    for i in range(train_dataset.size(0)//batch_size):
+
+        batch = train_dataset[i*batch_size:(i+1)*batch_size]
+
         z_D        = torch.randn( [batch.size(0), model.latent_dim] )
         times_D = torch.randint(1, model.n_steps+1, (batch.size(0),1))
 
@@ -89,11 +119,7 @@ for epoch in range(n_epochs):
         optimD.step()
 
 
-
-        #second random batch of data
-        idx = torch.randperm(train_dataset.size(0))
-        batch = train_dataset[idx[:batch_size]]
-
+        batch = train_dataset[i*batch_size:(i+1)*batch_size]        
 
         ## training the generator
         z_G        = torch.randn( [batch.size(0), model.latent_dim] )
@@ -114,5 +140,13 @@ for epoch in range(n_epochs):
         # grad_disc = torch.autograd.grad(probs_real,x_t1)
         # loss += 0.05*grad_disc**2
 
-        print(f"Epoch {epoch}, : lossD = {lossD}, lossG = {lossG}")
+        print(f"Epoch {epoch}, Batch {i} : lossD = {lossD}, lossG = {lossG}")
+
+        if lossD < lossD_best:
+            lossD_best  = lossD
+            pkl.dump(model.disc, open(os.path.join(savedir + '/' + run_name , "bestD.pkl"), "wb"))
+        if lossG < lossG_best:
+            lossG_best  = lossG
+            pkl.dump(model.gen, open(os.path.join(savedir + '/' + run_name, "bestG.pkl"), "wb"))
+
 
