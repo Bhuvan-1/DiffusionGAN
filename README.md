@@ -1,4 +1,5 @@
 ##  data/ ##
+This project was done as part of Advanced ML course under Professor Sunita Sarawagi
 It has a generate.py file that can be used to generate a `npz` file, which esentially is a dictionary
 storing 'train' 'test' images & labels.
 
